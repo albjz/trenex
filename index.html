@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Puntualidad Ferroviaria Extremadura</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f8fafc; color: #1e293b; }
+    h1 { color: #0f172a; margin-bottom: 5px; }
+    p.sub { color: #64748b; margin-top: 0; margin-bottom: 25px; }
+    .kpi-container { display: flex; gap: 15px; margin-bottom: 25px; }
+    .kpi-card { background: white; padding: 18px; border-radius: 8px; border: 1px solid #e2e8f0; flex: 1; text-align: center; }
+    .kpi-number { font-size: 28px; font-weight: bold; color: #0284c7; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+    th { background: #f8fafc; font-weight: 600; color: #475569; }
+    .badge-ok { background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 13px; }
+    .badge-delay { background: #fee2e2; color: #b91c1c; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <h1>Monitor Ferroviario de Extremadura</h1>
+  <p class="sub">Datos objetivos y en vivo extraídos de la telemetría oficial de Renfe GTFS-RT.</p>
+
+  <div class="kpi-container">
+    <div class="kpi-card">
+      <div>Total Registros</div>
+      <div class="kpi-number" id="total-registros">-</div>
+    </div>
+    <div class="kpi-card">
+      <div>Cumplimiento Horario (&lt;5 min)</div>
+      <div class="kpi-number" id="pct-puntualidad" style="color: #16a34a;">-%</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Hora Captura</th>
+        <th>Nº Tren</th>
+        <th>Punto / Estación</th>
+        <th>Desviación</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody id="tabla-body">
+      <tr><td colspan="5" style="text-align: center; color: #94a3b8;">Cargando datos...</td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    const SUPABASE_URL = "https://mubylikdejwkfjjymmzq.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11YnlsaWtkZWp3a2ZqanltbXpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3NTk3NDUsImV4cCI6MjEwNTMzNTc0NX0.nGoIlItx-dzGRiwoRNd8PEC3X6q5eNP3p_k219QnmZk";
+    const cliente = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function cargarDatos() {
+      const { data, error } = await cliente
+        .from('registros_trenes')
+        .select('*')
+        .order('fecha_captura', { ascending: false })
+        .limit(20);
+
+      if (error || !data || data.length === 0) {
+        document.getElementById('tabla-body').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8;">Sin registros acumulados todavía. Se actualizará en cuanto comience la jornada matinal.</td></tr>';
+        return;
+      }
+
+      document.getElementById('total-registros').innerText = data.length;
+      const aTiempo = data.filter(r => (r.retraso_minutos || 0) <= 5).length;
+      document.getElementById('pct-puntualidad').innerText = Math.round((aTiempo / data.length) * 100) + '%';
+
+      const filas = data.map(r => {
+        const hora = new Date(r.fecha_captura).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const ret = r.retraso_minutos || 0;
+        const badge = ret > 5 
+          ? `<span class="badge-delay">+${ret} min</span>` 
+          : `<span class="badge-ok">${ret <= 0 ? 'En hora' : '+' + ret + ' min'}</span>`;
+
+        return `<tr>
+          <td>${hora}</td>
+          <td><strong>${r.tren_id}</strong></td>
+          <td>${r.estacion_actual || 'En trayecto'}</td>
+          <td>${badge}</td>
+          <td>${r.estado || 'CIRCULANDO'}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('tabla-body').innerHTML = filas;
+    }
+
+    cargarDatos();
+  </script>
+</body>
+</html>
