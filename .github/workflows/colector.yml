@@ -1,0 +1,32 @@
+name: Colector Trenes Extremadura
+
+on:
+  schedule:
+    # Se ejecuta cada 15 minutos de forma automática
+    - cron: '*/15 * * * *'
+  # Permite pulsar un botón para probarlo manualmente cuando quieras
+  workflow_dispatch:
+
+jobs:
+  capturar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar librerías
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ejecutar colector
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python colector.py
