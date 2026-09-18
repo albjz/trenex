@@ -3,18 +3,16 @@ import os
 import urllib.request
 from supabase import create_client
 
-# 1. Conexión segura con Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# 2. Endpoints oficiales de Renfe GTFS-RT
 URL_POSICIONES = "https://gtfsrt.renfe.com/vehicle_positions_LD.json"
 URL_RETRASOS = "https://gtfsrt.renfe.com/trip_updates_LD.json"
 
-# 3. Lista maestra de trenes oficiales de Extremadura (válidos desde septiembre 2026)
-TRENES_EXTREMADURA_RAW = {
-    # Alvia (Madrid - Badajoz)
+# Códigos limpios de los trenes extremeños según las tablas oficiales
+TRENES_BUSCADOS = [
+    # Alvia
     "190",
     "192",
     "194",
@@ -23,7 +21,7 @@ TRENES_EXTREMADURA_RAW = {
     "295",
     "297",
     "299",
-    # Madrid - Cáceres - Badajoz - Sevilla
+    # Regionales / Media Distancia Madrid - Cáceres - Badajoz - Sevilla
     "17012",
     "17014",
     "17018",
@@ -56,7 +54,7 @@ TRENES_EXTREMADURA_RAW = {
     "13087",
     "13088",
     "13089",
-    # Corredor Badajoz - Mérida - Puertollano - Alcázar
+    # Corredor Badajoz - Puertollano - Alcázar
     "17801",
     "17803",
     "17806",
@@ -66,21 +64,17 @@ TRENES_EXTREMADURA_RAW = {
     "18331",
     "18770",
     "18777",
-}
-
-# Normalizamos a formato de 5 caracteres con ceros a la izquierda (ej: '194' -> '00194')
-TRENES_EXTREMADURA = {num.zfill(5) for num in TRENES_EXTREMADURA_RAW}
+]
 
 
-def normalizar_id_tren(raw_id):
-  """Extrae los dígitos del tren y los devuelve a 5 caracteres."""
-  if not raw_id:
+def coincide_tren(cadena_texto):
+  """Comprueba si alguno de los números extremeños está dentro del identificador de Renfe."""
+  if not cadena_texto:
     return None
-  digitos = "".join(filter(str.isdigit, str(raw_id)))
-  if len(digitos) >= 5:
-    return digitos[:5]
-  elif len(digitos) > 0:
-    return digitos.zfill(5)
+  texto = str(cadena_texto)
+  for num in TRENES_BUSCADOS:
+    if num in texto:
+      return num
   return None
 
 
@@ -100,42 +94,45 @@ def ejecutar_captura():
     print(f"Error descargando datos: {e}")
     return
 
-  # Mapa de retrasos en minutos indexado por identificador normalizado
+  # Mapa de retrasos
   mapa_retrasos = {}
   for entidad in retrasos_raw.get("entity", []):
     trip_update = entidad.get("trip_update", {})
 
-    tren_candidato = trip_update.get("vehicle", {}).get("id")
-    if not tren_candidato and "trip" in trip_update:
-      tren_candidato = trip_update["trip"].get("tripId")
+    id_vehiculo = trip_update.get("vehicle", {}).get("id", "")
+    id_trip = trip_update.get("trip", {}).get("tripId", "")
+    tren_detectado = coincide_tren(id_vehiculo) or coincide_tren(id_trip)
 
-    tren_id = normalizar_id_tren(tren_candidato)
+    if tren_detectado:
+      retraso_seg = trip_update.get("delay")
+      if retraso_seg is None and "stop_time_update" in trip_update:
+        paradas = trip_update["stop_time_update"]
+        if paradas:
+          llegada = paradas[-1].get("arrival", {})
+          retraso_seg = llegada.get("delay", 0)
 
-    retraso_seg = trip_update.get("delay")
-    if retraso_seg is None and "stop_time_update" in trip_update:
-      paradas = trip_update["stop_time_update"]
-      if paradas:
-        llegada = paradas[-1].get("arrival", {})
-        retraso_seg = llegada.get("delay", 0)
+      if retraso_seg is not None:
+        mapa_retrasos[tren_detectado] = round(retraso_seg / 60)
 
-    if tren_id and retraso_seg is not None:
-      mapa_retrasos[tren_id] = round(retraso_seg / 60)
-
-  # Filtrar posiciones para trenes del catálogo extremeño
+  # Filtrar posiciones
   registros = []
   for entidad in posiciones_raw.get("entity", []):
     vehiculo = entidad.get("vehicle", {})
 
-    tren_candidato = vehiculo.get("vehicle", {}).get("id")
-    if not tren_candidato and "trip" in vehiculo:
-      tren_candidato = vehiculo["trip"].get("tripId")
+    id_vehiculo = vehiculo.get("vehicle", {}).get("id", "")
+    id_trip = vehiculo.get("trip", {}).get("tripId", "")
+    id_entidad = entidad.get("id", "")
 
-    tren_id = normalizar_id_tren(tren_candidato)
+    tren_detectado = (
+        coincide_tren(id_vehiculo)
+        or coincide_tren(id_trip)
+        or coincide_tren(id_entidad)
+    )
 
-    if tren_id in TRENES_EXTREMADURA:
-      retraso_min = mapa_retrasos.get(tren_id, 0)
+    if tren_detectado:
+      retraso_min = mapa_retrasos.get(tren_detectado, 0)
       registros.append({
-          "tren_id": tren_id,
+          "tren_id": tren_detectado,
           "estacion_actual": vehiculo.get("stopId", "En trayecto"),
           "retraso_minutos": retraso_min,
           "estado": vehiculo.get("currentStatus", "DESCONOCIDO"),
@@ -143,7 +140,7 @@ def ejecutar_captura():
 
   if registros:
     supabase.table("registros_trenes").insert(registros).execute()
-    print(f"Éxito: {len(registros)} registros extremeños guardados.")
+    print(f"Éxito: {len(registros)} registros guardados: {registros}")
   else:
     print("Sin trenes extremeños activos en este momento.")
 
