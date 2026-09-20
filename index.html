@@ -19,6 +19,7 @@
       --text: #0f172a;
       --text-muted: #64748b;
       --primary: #0284c7;
+      --primary-hover: #0369a1;
       --success: #16a34a;
       --warning: #d97706;
       --danger: #dc2626;
@@ -113,6 +114,68 @@
       padding: 20px;
     }
     .panel-title { font-size: 16px; font-weight: 600; margin-top: 0; margin-bottom: 16px; }
+
+    /* Rankings y Comparativas */
+    .rankings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 768px) {
+      .rankings-grid { grid-template-columns: 1fr; }
+    }
+    .rank-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 13px;
+    }
+    .rank-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .rank-item:last-child { border-bottom: none; }
+    .rank-name { font-weight: 600; color: var(--text); }
+    .rank-route { font-size: 11px; color: var(--text-muted); display: block; }
+    .rank-val { font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+    /* Ficha Individual */
+    .search-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 28px;
+    }
+    .search-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .select-input {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 14px;
+      color: var(--text);
+      min-width: 260px;
+    }
+    .audit-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      background: #f8fafc;
+      padding: 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
 
     /* Filtros y Tabla */
     .table-controls {
@@ -310,6 +373,51 @@
     <div id="map"></div>
   </div>
 
+  <!-- Rankings de Puntualidad y Demoras -->
+  <div class="rankings-grid">
+    <div class="panel">
+      <h3 class="panel-title" style="color: var(--success);">Top Servicios Más Fiables</h3>
+      <ul class="rank-list" id="ranking-fiabilidad">
+        <li style="color: var(--text-muted); padding: 8px 0;">Calculando métricas...</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3 class="panel-title" style="color: var(--danger);">Servicios con Mayor Demora Media</h3>
+      <ul class="rank-list" id="ranking-demoras">
+        <li style="color: var(--text-muted); padding: 8px 0;">Calculando métricas...</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Ficha de Auditoría Individual -->
+  <div class="search-panel">
+    <h3 class="panel-title">Auditoría Individual por Tren</h3>
+    <div class="search-controls">
+      <label for="select-tren" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Selecciona un servicio:</label>
+      <select id="select-tren" class="select-input" onchange="actualizarFichaIndividual(this.value)">
+        <option value="">-- Elige un tren del histórico --</option>
+      </select>
+    </div>
+    <div class="audit-stats" id="audit-stats-box" style="display: none;">
+      <div>
+        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Puntualidad del Tren</span>
+        <div style="font-size: 20px; font-weight: 700; color: var(--text);" id="audit-puntualidad">-%</div>
+      </div>
+      <div>
+        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Demora Media</span>
+        <div style="font-size: 20px; font-weight: 700; color: var(--text);" id="audit-demora">- min</div>
+      </div>
+      <div>
+        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Capturas Analizadas</span>
+        <div style="font-size: 20px; font-weight: 700; color: var(--text);" id="audit-total">-</div>
+      </div>
+      <div>
+        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Ruta Oficial</span>
+        <div style="font-size: 12px; font-weight: 600; color: var(--primary);" id="audit-ruta">-</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Analítica Visual -->
   <div class="analytics-section">
     <div class="panel">
@@ -326,7 +434,7 @@
         <li style="margin-bottom: 8px;"><strong style="color: var(--danger)">Retraso significativo:</strong> Superior a 30 min.</li>
       </ul>
       <div style="margin-top: 18px; font-size: 11px; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 12px;">
-        Vías en color rojo/negro (OpenRailwayMap). Estaciones clave señalizadas con nodos grises.
+        Vías representadas con OpenRailwayMap. Balizas y estaciones con puntos grises.
       </div>
     </div>
   </div>
@@ -393,24 +501,21 @@
   // Inicializar Leaflet centrado en Extremadura
   const map = L.map('map').setView([39.2, -6.1], 8);
 
-  // Capa base limpia (CartoDB Positron)
-  const baseCarto = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  // CartoDB Positron + OpenRailwayMap
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap, &copy; CartoDB',
     maxZoom: 19
   }).addTo(map);
 
-  // Capa de Infraestructura Ferroviaria Oficial de OpenRailwayMap
-  const railwayOverlay = L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
-    attribution: 'Map style: &copy; <a href="https://www.OpenRailwayMap.org">OpenRailwayMap</a>',
+  L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.OpenRailwayMap.org">OpenRailwayMap</a>',
     maxZoom: 19,
     opacity: 0.95
   }).addTo(map);
 
-  // Red de capas: trenes activos y estaciones fijas
   const trainLayerGroup = L.layerGroup().addTo(map);
   const stationLayerGroup = L.layerGroup().addTo(map);
 
-  // Estaciones principales de la red extremeña para referencias fijas
   const ESTACIONES_EXTREMADURA = [
     { nombre: "Badajoz", coords: [38.8893, -6.9852] },
     { nombre: "Mérida", coords: [38.9221, -6.3458] },
@@ -429,7 +534,6 @@
     { nombre: "Valencia de Alcántara", coords: [39.4183, -7.2389] }
   ];
 
-  // Dibujar estaciones en el mapa
   ESTACIONES_EXTREMADURA.forEach(st => {
     const stationMarker = L.circleMarker(st.coords, {
       radius: 4,
@@ -524,6 +628,7 @@
 
   let registrosGlobales = [];
   let graficoPuntualidad = null;
+  let metricasPorTren = {};
 
   function obtenerInfoRuta(trenId) {
     const digitos = trenId.replace(/\D/g, "");
@@ -544,7 +649,7 @@
       .from('registros_trenes')
       .select('*')
       .order('fecha_captura', { ascending: false })
-      .limit(100);
+      .limit(300);
 
     if (error) {
       console.error("Error al consultar Supabase:", error);
@@ -561,6 +666,7 @@
 
     registrosGlobales = data;
     actualizarKPIs(data);
+    calcularRankingsYAuditoria(data);
     dibujarGrafico(data);
     actualizarMapa(data);
     renderizarTabla(data);
@@ -579,10 +685,92 @@
     document.getElementById('kpi-retraso-medio').innerText = `${retrasoMedio} min`;
   }
 
+  function calcularRankingsYAuditoria(datos) {
+    const grupos = {};
+    datos.forEach(d => {
+      const id = d.tren_id;
+      if (!grupos[id]) {
+        grupos[id] = { total: 0, aTiempo: 0, sumaRetraso: 0, info: obtenerInfoRuta(id) };
+      }
+      grupos[id].total += 1;
+      grupos[id].sumaRetraso += (d.retraso_minutos || 0);
+      if ((d.retraso_minutos || 0) <= 15) {
+        grupos[id].aTiempo += 1;
+      }
+    });
+
+    metricasPorTren = {};
+    const listaAnalizada = [];
+
+    for (const [id, st] of Object.entries(grupos)) {
+      const puntualidad = Math.round((st.aTiempo / st.total) * 100);
+      const mediaRetraso = Number((st.sumaRetraso / st.total).toFixed(1));
+      metricasPorTren[id] = { id, puntualidad, mediaRetraso, total: st.total, ruta: st.info.ruta };
+      listaAnalizada.push(metricasPorTren[id]);
+    }
+
+    // Top Fiabilidad (Mayor % puntualidad)
+    const topFiables = [...listaAnalizada].sort((a, b) => b.puntualidad - a.puntualidad || a.mediaRetraso - b.mediaRetraso).slice(0, 3);
+    const fiabHtml = topFiables.map((t, idx) => `
+      <li class="rank-item">
+        <div>
+          <span class="rank-name">#${idx + 1} ${t.id}</span>
+          <span class="rank-route">${t.ruta}</span>
+        </div>
+        <span class="rank-val" style="background: #dcfce7; color: #166534;">${t.puntualidad}% puntual</span>
+      </li>
+    `).join('');
+    document.getElementById('ranking-fiabilidad').innerHTML = fiabHtml || '<li style="padding: 8px 0;">Datos insuficientes</li>';
+
+    // Top Mayor Demora (Mayor retraso medio)
+    const topDemoras = [...listaAnalizada].sort((a, b) => b.mediaRetraso - a.mediaRetraso).slice(0, 3);
+    const demHtml = topDemoras.map((t, idx) => `
+      <li class="rank-item">
+        <div>
+          <span class="rank-name">${t.id}</span>
+          <span class="rank-route">${t.ruta}</span>
+        </div>
+        <span class="rank-val" style="background: #fee2e2; color: #991b1b;">+${t.mediaRetraso} min media</span>
+      </li>
+    `).join('');
+    document.getElementById('ranking-demoras').innerHTML = demHtml || '<li style="padding: 8px 0;">Datos insuficientes</li>';
+
+    // Poblar Selector de Tren para Auditoría Individual
+    const select = document.getElementById('select-tren');
+    const valorSeleccionado = select.value;
+    select.innerHTML = '<option value="">-- Elige un tren del histórico --</option>';
+
+    listaAnalizada.sort((a, b) => a.id.localeCompare(b.id)).forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.innerText = `${t.id} - ${t.ruta}`;
+      select.appendChild(opt);
+    });
+
+    if (valorSeleccionado && metricasPorTren[valorSeleccionado]) {
+      select.value = valorSeleccionado;
+      actualizarFichaIndividual(valorSeleccionado);
+    }
+  }
+
+  function actualizarFichaIndividual(trenId) {
+    const box = document.getElementById('audit-stats-box');
+    if (!trenId || !metricasPorTren[trenId]) {
+      box.style.display = 'none';
+      return;
+    }
+
+    const t = metricasPorTren[trenId];
+    document.getElementById('audit-puntualidad').innerText = `${t.puntualidad}%`;
+    document.getElementById('audit-demora').innerText = `${t.mediaRetraso} min`;
+    document.getElementById('audit-total').innerText = `${t.total} lecturas`;
+    document.getElementById('audit-ruta').innerText = t.ruta;
+    box.style.display = 'grid';
+  }
+
   function actualizarMapa(datos) {
     trainLayerGroup.clearLayers();
     
-    // Obtener la última posición conocida de cada tren activo
     const ultimasPosiciones = new Map();
     datos.forEach(r => {
       if (r.latitud && r.longitud && !ultimasPosiciones.has(r.tren_id)) {
