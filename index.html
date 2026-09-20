@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -266,7 +266,9 @@
   // Credenciales activas del proyecto Supabase
   const SUPABASE_URL = "https://pjyndxkdajvxeyzsgdgm.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeW5keGtkYWp2eGV5enNnZGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NzQ0NTgsImV4cCI6MjEwMzM1MDQ1OH0.Smj2hvmuw6iPpUx-bi2I3hHW6wUWKG7yCzEhWRvlQxs";
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  
+  // Cliente de base de datos con instancia única
+  const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   // Mapeo oficial de trayectos de las tablas horarias
   const RUTAS_OFICIALES = {
@@ -305,13 +307,18 @@
   }
 
   async function cargarDatos() {
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('registros_trenes')
       .select('*')
       .order('fecha_captura', { ascending: false })
       .limit(100);
 
-    if (error || !data || data.length === 0) {
+    if (error) {
+      console.error("Error al consultar Supabase:", error);
+      return;
+    }
+
+    if (!data || data.length === 0) {
       document.getElementById('tabla-registros').innerHTML = `
         <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
           Sin circulaciones registradas en este instante. La tabla se actualizará automáticamente conforme los trenes salgan a vía.
@@ -327,7 +334,7 @@
 
   function actualizarKPIs(datos) {
     const total = datos.length;
-    // Criterio: En hora <= 15 minutos
+    // Criterio acordado: En hora <= 15 min
     const aTiempo = datos.filter(d => (d.retraso_minutos || 0) <= 15).length;
     const porcentaje = Math.round((aTiempo / total) * 100);
 
@@ -340,7 +347,7 @@
   }
 
   function dibujarGrafico(datos) {
-    // Umbrales acordados: <=15 min, 16-30 min, >30 min
+    // Umbrales: <=15 min, 16-30 min, >30 min
     const enHora = datos.filter(d => (d.retraso_minutos || 0) <= 15).length;
     const demoraLeve = datos.filter(d => d.retraso_minutos > 15 && d.retraso_minutos <= 30).length;
     const retrasoSignificativo = datos.filter(d => d.retraso_minutos > 30).length;
@@ -420,7 +427,7 @@
   }
 
   cargarDatos();
-  // Consulta automática cada 3 minutos
+  // Auto-refresco de la interfaz cada 3 minutos
   setInterval(cargarDatos, 180000);
 </script>
 
