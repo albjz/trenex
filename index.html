@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Observatorio Ferroviario de Extremadura | Datos Abiertos en Tiempo Real</title>
+  <title>Observatorio Ferroviario de Extremadura | Telemetría en Vivo</title>
   
-  <!-- Supabase JS & Chart.js -->
+  <!-- Supabase JS, Chart.js & Leaflet JS/CSS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     :root {
@@ -17,7 +19,6 @@
       --text: #0f172a;
       --text-muted: #64748b;
       --primary: #0284c7;
-      --primary-hover: #0369a1;
       --success: #16a34a;
       --warning: #d97706;
       --danger: #dc2626;
@@ -36,14 +37,13 @@
     .container { max-width: 1100px; margin: 0 auto; }
 
     header {
-      margin-bottom: 28px;
+      margin-bottom: 24px;
       border-bottom: 1px solid var(--border);
       padding-bottom: 16px;
     }
     h1 { font-size: 26px; font-weight: 700; margin: 0 0 6px 0; color: var(--text); }
     .subtitle { color: var(--text-muted); font-size: 14px; margin: 0; }
 
-    /* Indicador En Vivo */
     .live-indicator {
       display: inline-flex;
       align-items: center;
@@ -80,6 +80,21 @@
     .kpi-title { font-size: 13px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
     .kpi-value { font-size: 32px; font-weight: 700; margin: 8px 0 2px 0; color: var(--text); }
     .kpi-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* Contenedor del Mapa */
+    .map-container-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    #map {
+      height: 380px;
+      width: 100%;
+      border-radius: 6px;
+      z-index: 10;
+    }
 
     /* Analítica Visual */
     .analytics-section {
@@ -145,10 +160,9 @@
       border-bottom: 1px solid var(--border);
       white-space: nowrap;
     }
-    tr.clickable-row { cursor: pointer; transition: background-color 0.15s; }
+    tr.clickable-row { cursor: pointer; }
     tr.clickable-row:hover td { background-color: #f1f5f9; }
 
-    /* Badges */
     .badge {
       display: inline-block;
       padding: 3px 8px;
@@ -160,7 +174,6 @@
     .badge-minor { background: #fef9c3; color: #854d0e; }
     .badge-delayed { background: #fee2e2; color: #991b1b; }
 
-    /* Botón detalle */
     .btn-detail {
       background: none;
       border: 1px solid var(--border);
@@ -173,7 +186,6 @@
     }
     .btn-detail:hover { background: #e0f2fe; }
 
-    /* Metodología */
     .methodology-box {
       margin-top: 32px;
       background: #f8fafc;
@@ -185,7 +197,7 @@
     }
     .methodology-box h4 { margin: 0 0 6px 0; color: var(--text); font-size: 13px; }
 
-    /* Ventana Modal */
+    /* Modal Itinerario */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -286,6 +298,15 @@
     </div>
   </div>
 
+  <!-- Mapa en Vivo -->
+  <div class="map-container-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h3 style="margin: 0; font-size: 16px;">Mapa de Circulaciones en Tiempo Real (GPS Renfe)</h3>
+      <span style="font-size: 12px; color: var(--text-muted);" id="map-status">Localizando convoyes...</span>
+    </div>
+    <div id="map"></div>
+  </div>
+
   <!-- Analítica Visual -->
   <div class="analytics-section">
     <div class="panel">
@@ -299,10 +320,10 @@
       <ul style="font-size: 13px; color: var(--text-muted); padding-left: 18px; margin: 0;">
         <li style="margin-bottom: 8px;"><strong style="color: var(--success)">En hora:</strong> Desviación &le; 15 min.</li>
         <li style="margin-bottom: 8px;"><strong style="color: var(--warning)">Demora leve:</strong> Retraso entre 16 y 30 min.</li>
-        <li style="margin-bottom: 8px;"><strong style="color: var(--danger)">Retraso significativo:</strong> Superior a 30 min (&gt; 31 min).</li>
+        <li style="margin-bottom: 8px;"><strong style="color: var(--danger)">Retraso significativo:</strong> Superior a 30 min.</li>
       </ul>
       <div style="margin-top: 18px; font-size: 11px; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 12px;">
-        Los retrasos corresponden a la telemetría enviada por el transpondedor del tren al sistema central en tiempo real.
+        Puntos verdes: &le;15 min | Ámbar: 16-30 min | Rojos: &gt;30 min.
       </div>
     </div>
   </div>
@@ -340,14 +361,14 @@
     </table>
   </div>
 
-  <!-- Nota Metodológica -->
+  <!-- Metodología -->
   <div class="methodology-box">
     <h4>Transparencia y Metodología</h4>
-    Esta plataforma no elabora estimaciones teóricas ni recopila valoraciones subjetivas. Los datos mostrados provienen directamente de los feeds públicos oficiales de telemetría ferroviaria en formato estándar internacional <strong>GTFS-RT (General Transit Feed Specification Real-Time)</strong> gestionados por Renfe y Adif. Cada registro refleja la última posición y desviación reportada de forma automatizada por los transpondedores del material rodante. Haz clic sobre cualquier servicio para consultar su secuencia oficial de paradas intermedias.
+    Esta plataforma no elabora estimaciones teóricas ni recopila valoraciones subjetivas. Los datos mostrados provienen directamente de los feeds públicos oficiales de telemetría ferroviaria en formato estándar internacional <strong>GTFS-RT (General Transit Feed Specification Real-Time)</strong> gestionados por Renfe y Adif. Cada registro refleja la última posición y desviación reportada de forma automatizada por los transpondedores del material rodante.
   </div>
 </div>
 
-<!-- Ventana Modal de Itinerario -->
+<!-- Modal Itinerario -->
 <div class="modal-overlay" id="modal-itinerario" onclick="cerrarModal(event)">
   <div class="modal-card" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -362,14 +383,18 @@
 </div>
 
 <script>
-  // Credenciales activas del proyecto Supabase
   const SUPABASE_URL = "https://pjyndxkdajvxeyzsgdgm.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeW5keGtkYWp2eGV5enNnZGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NzQ0NTgsImV4cCI6MjEwMzM1MDQ1OH0.Smj2hvmuw6iPpUx-bi2I3hHW6wUWKG7yCzEhWRvlQxs";
-  
-  // Cliente Supabase instanciado una sola vez
   const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Catálogo oficial de trayectos y paradas intermedias de Extremadura
+  // Inicializar Leaflet centrado en Extremadura
+  const map = L.map('map').setView([39.2, -6.1], 8);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+  const trainLayerGroup = L.layerGroup().addTo(map);
+
   const ITINERARIOS = {
     "190": {
       ruta: "Madrid Chamartín ➔ Badajoz",
@@ -462,7 +487,7 @@
     return {
       clave: "EXT",
       ruta: "Corredor Ferroviario de Extremadura",
-      paradas: ["Estaciones del trayecto según circulación diaria"]
+      paradas: ["Estaciones según turno diario"]
     };
   }
 
@@ -489,12 +514,12 @@
     registrosGlobales = data;
     actualizarKPIs(data);
     dibujarGrafico(data);
+    actualizarMapa(data);
     renderizarTabla(data);
   }
 
   function actualizarKPIs(datos) {
     const total = datos.length;
-    // Umbral acordado: En hora <= 15 min
     const aTiempo = datos.filter(d => (d.retraso_minutos || 0) <= 15).length;
     const porcentaje = Math.round((aTiempo / total) * 100);
 
@@ -504,6 +529,51 @@
     document.getElementById('kpi-total').innerText = total;
     document.getElementById('kpi-puntualidad').innerText = `${porcentaje}%`;
     document.getElementById('kpi-retraso-medio').innerText = `${retrasoMedio} min`;
+  }
+
+  function actualizarMapa(datos) {
+    trainLayerGroup.clearLayers();
+    
+    // Obtener la última posición conocida de cada tren activo
+    const ultimasPosiciones = new Map();
+    datos.forEach(r => {
+      if (r.latitud && r.longitud && !ultimasPosiciones.has(r.tren_id)) {
+        ultimasPosiciones.set(r.tren_id, r);
+      }
+    });
+
+    let trenesMapeados = 0;
+    ultimasPosiciones.forEach((t) => {
+      trenesMapeados++;
+      const delay = t.retraso_minutos || 0;
+      let markerColor = '#16a34a';
+      if (delay > 30) markerColor = '#dc2626';
+      else if (delay > 15) markerColor = '#d97706';
+
+      const circleMarker = L.circleMarker([t.latitud, t.longitud], {
+        radius: 8,
+        fillColor: markerColor,
+        color: '#ffffff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9
+      });
+
+      const info = obtenerInfoRuta(t.tren_id);
+      circleMarker.bindPopup(`
+        <div style="font-family: sans-serif; font-size: 13px;">
+          <strong>${t.tren_id}</strong><br>
+          <span style="color: #64748b;">${info.ruta}</span><br>
+          <b>Desviación:</b> ${delay > 0 ? '+' + delay + ' min' : 'En hora'}<br>
+          <b>Punto:</b> ${t.estacion_actual || 'Vía general'}
+        </div>
+      `);
+
+      trainLayerGroup.addLayer(circleMarker);
+    });
+
+    document.getElementById('map-status').innerText = 
+      trenesMapeados > 0 ? `${trenesMapeados} trenes posicionados en vivo` : 'Esperando emisión de coordenadas GPS';
   }
 
   function dibujarGrafico(datos) {
