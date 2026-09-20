@@ -17,6 +17,7 @@
       --text: #0f172a;
       --text-muted: #64748b;
       --primary: #0284c7;
+      --primary-hover: #0369a1;
       --success: #16a34a;
       --warning: #d97706;
       --danger: #dc2626;
@@ -80,7 +81,7 @@
     .kpi-value { font-size: 32px; font-weight: 700; margin: 8px 0 2px 0; color: var(--text); }
     .kpi-sub { font-size: 12px; color: var(--text-muted); }
 
-    /* Gráfico y Distribución */
+    /* Analítica Visual */
     .analytics-section {
       display: grid;
       grid-template-columns: 2fr 1fr;
@@ -144,8 +145,8 @@
       border-bottom: 1px solid var(--border);
       white-space: nowrap;
     }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background-color: #f8fafc; }
+    tr.clickable-row { cursor: pointer; transition: background-color 0.15s; }
+    tr.clickable-row:hover td { background-color: #f1f5f9; }
 
     /* Badges */
     .badge {
@@ -159,6 +160,19 @@
     .badge-minor { background: #fef9c3; color: #854d0e; }
     .badge-delayed { background: #fee2e2; color: #991b1b; }
 
+    /* Botón detalle */
+    .btn-detail {
+      background: none;
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--primary);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-detail:hover { background: #e0f2fe; }
+
     /* Metodología */
     .methodology-box {
       margin-top: 32px;
@@ -170,6 +184,76 @@
       color: var(--text-muted);
     }
     .methodology-box h4 { margin: 0 0 6px 0; color: var(--text); font-size: 13px; }
+
+    /* Ventana Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      max-width: 550px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .modal-header h3 { margin: 0; font-size: 18px; color: var(--text); }
+    .close-modal-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .route-timeline {
+      position: relative;
+      padding-left: 24px;
+      margin-top: 16px;
+    }
+    .route-timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: #cbd5e1;
+    }
+    .stop-point {
+      position: relative;
+      margin-bottom: 14px;
+      font-size: 13px;
+    }
+    .stop-point::before {
+      content: '';
+      position: absolute;
+      left: -21px;
+      top: 4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 2px solid var(--primary);
+    }
+    .stop-point.terminal::before { background: var(--primary); }
   </style>
 </head>
 <body>
@@ -213,9 +297,9 @@
     <div class="panel">
       <h3 class="panel-title">Criterios de Puntualidad</h3>
       <ul style="font-size: 13px; color: var(--text-muted); padding-left: 18px; margin: 0;">
-        <li style="margin-bottom: 8px;"><strong style="color: var(--success)">En hora:</strong> Desviación igual o inferior a 15 min.</li>
+        <li style="margin-bottom: 8px;"><strong style="color: var(--success)">En hora:</strong> Desviación &le; 15 min.</li>
         <li style="margin-bottom: 8px;"><strong style="color: var(--warning)">Demora leve:</strong> Retraso entre 16 y 30 min.</li>
-        <li style="margin-bottom: 8px;"><strong style="color: var(--danger)">Retraso significativo:</strong> Superior a 30 min.</li>
+        <li style="margin-bottom: 8px;"><strong style="color: var(--danger)">Retraso significativo:</strong> Superior a 30 min (&gt; 31 min).</li>
       </ul>
       <div style="margin-top: 18px; font-size: 11px; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 12px;">
         Los retrasos corresponden a la telemetría enviada por el transpondedor del tren al sistema central en tiempo real.
@@ -241,13 +325,14 @@
           <th>Servicio / Tren</th>
           <th>Trayecto Oficial</th>
           <th>Punto de Control</th>
-          <th>Desviación Registrada</th>
-          <th>Estado Operativo</th>
+          <th>Desviación</th>
+          <th>Estado</th>
+          <th>Itinerario</th>
         </tr>
       </thead>
       <tbody id="tabla-registros">
         <tr>
-          <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
+          <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
             Cargando telemetría...
           </td>
         </tr>
@@ -258,7 +343,21 @@
   <!-- Nota Metodológica -->
   <div class="methodology-box">
     <h4>Transparencia y Metodología</h4>
-    Esta plataforma no elabora estimaciones teóricas ni recopila valoraciones subjetivas. Los datos mostrados provienen directamente de los feeds públicos oficiales de telemetría ferroviaria en formato estándar internacional <strong>GTFS-RT (General Transit Feed Specification Real-Time)</strong> gestionados por Renfe y Adif. Cada registro refleja la última posición satelital y el cálculo de desviación horario reportado de forma automatizada por los transpondedores del material rodante.
+    Esta plataforma no elabora estimaciones teóricas ni recopila valoraciones subjetivas. Los datos mostrados provienen directamente de los feeds públicos oficiales de telemetría ferroviaria en formato estándar internacional <strong>GTFS-RT (General Transit Feed Specification Real-Time)</strong> gestionados por Renfe y Adif. Cada registro refleja la última posición y desviación reportada de forma automatizada por los transpondedores del material rodante. Haz clic sobre cualquier servicio para consultar su secuencia oficial de paradas intermedias.
+  </div>
+</div>
+
+<!-- Ventana Modal de Itinerario -->
+<div class="modal-overlay" id="modal-itinerario" onclick="cerrarModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-titulo">Itinerario del Tren</h3>
+        <p id="modal-subtitulo" style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0 0;"></p>
+      </div>
+      <button class="close-modal-btn" onclick="cerrarModal()">&times;</button>
+    </div>
+    <div id="modal-contenido"></div>
   </div>
 </div>
 
@@ -267,43 +366,104 @@
   const SUPABASE_URL = "https://pjyndxkdajvxeyzsgdgm.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeW5keGtkYWp2eGV5enNnZGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NzQ0NTgsImV4cCI6MjEwMzM1MDQ1OH0.Smj2hvmuw6iPpUx-bi2I3hHW6wUWKG7yCzEhWRvlQxs";
   
-  // Cliente de base de datos con instancia única
+  // Cliente Supabase instanciado una sola vez
   const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Mapeo oficial de trayectos de las tablas horarias
-  const RUTAS_OFICIALES = {
-    "190": "Madrid Chamartín ➔ Badajoz",
-    "192": "Madrid Chamartín ➔ Badajoz",
-    "194": "Madrid Chamartín ➔ Badajoz",
-    "291": "Badajoz ➔ Madrid Chamartín",
-    "293": "Badajoz ➔ Madrid Chamartín",
-    "295": "Badajoz ➔ Madrid Chamartín",
-    "297": "Badajoz ➔ Madrid Chamartín",
-    "299": "Badajoz ➔ Madrid Chamartín",
-    "17012": "Madrid Chamartín ➔ Cáceres",
-    "17018": "Madrid Chamartín ➔ Cáceres",
-    "17028": "Madrid Chamartín ➔ Cáceres",
-    "17021": "Cáceres ➔ Madrid Chamartín",
-    "17029": "Valencia Alcántara / Cáceres ➔ Madrid",
-    "17801": "Badajoz ➔ Puertollano / Alcázar",
-    "17806": "Cabeza del Buey ➔ Badajoz",
-    "18330": "Alcázar de San Juan ➔ Badajoz",
-    "18331": "Badajoz ➔ Alcázar de San Juan",
-    "18770": "Puertollano ➔ Badajoz",
-    "18773": "Plasencia ➔ Sevilla Santa Justa",
-    "18775": "Plasencia ➔ Sevilla Santa Justa",
-    "18779": "Sevilla Santa Justa ➔ Plasencia"
+  // Catálogo oficial de trayectos y paradas intermedias de Extremadura
+  const ITINERARIOS = {
+    "190": {
+      ruta: "Madrid Chamartín ➔ Badajoz",
+      paradas: ["Madrid Chamartín", "Madrid Atocha Cercanías", "Leganés", "Torrijos", "Talavera de la Reina", "Oropesa de Toledo", "Navalmoral de la Mata", "Monfragüe-Plasencia", "Plasencia", "Cáceres", "Mérida", "Montijo", "Badajoz"]
+    },
+    "192": {
+      ruta: "Madrid Chamartín ➔ Badajoz",
+      paradas: ["Madrid Chamartín", "Madrid Atocha Cercanías", "Leganés", "Torrijos", "Talavera de la Reina", "Oropesa de Toledo", "Navalmoral de la Mata", "Monfragüe-Plasencia", "Plasencia", "Cáceres", "Mérida", "Montijo", "Badajoz"]
+    },
+    "194": {
+      ruta: "Madrid Chamartín ➔ Badajoz (Vespertino/Noche)",
+      paradas: ["Madrid Chamartín", "Madrid Atocha Cercanías", "Leganés", "Torrijos", "Talavera de la Reina", "Oropesa de Toledo", "Navalmoral de la Mata", "Monfragüe-Plasencia", "Plasencia", "Cáceres", "Mérida", "Montijo", "Badajoz"]
+    },
+    "291": {
+      ruta: "Badajoz ➔ Madrid Chamartín",
+      paradas: ["Badajoz", "Montijo", "Mérida", "Cáceres", "Plasencia", "Monfragüe-Plasencia", "Navalmoral de la Mata", "Oropesa de Toledo", "Talavera de la Reina", "Torrijos", "Leganés", "Madrid Atocha Cercanías", "Madrid Chamartín"]
+    },
+    "293": {
+      ruta: "Badajoz ➔ Madrid Chamartín",
+      paradas: ["Badajoz", "Montijo", "Mérida", "Cáceres", "Plasencia", "Monfragüe-Plasencia", "Navalmoral de la Mata", "Oropesa de Toledo", "Talavera de la Reina", "Torrijos", "Leganés", "Madrid Atocha Cercanías", "Madrid Chamartín"]
+    },
+    "297": {
+      ruta: "Badajoz ➔ Madrid Chamartín",
+      paradas: ["Badajoz", "Montijo", "Mérida", "Cáceres", "Plasencia", "Monfragüe-Plasencia", "Navalmoral de la Mata", "Oropesa de Toledo", "Talavera de la Reina", "Torrijos", "Leganés", "Madrid Atocha Cercanías", "Madrid Chamartín"]
+    },
+    "299": {
+      ruta: "Badajoz ➔ Madrid Chamartín",
+      paradas: ["Badajoz", "Montijo", "Mérida", "Cáceres", "Plasencia", "Monfragüe-Plasencia", "Navalmoral de la Mata", "Oropesa de Toledo", "Talavera de la Reina", "Torrijos", "Leganés", "Madrid Atocha Cercanías", "Madrid Chamartín"]
+    },
+    "17012": {
+      ruta: "Madrid Chamartín ➔ Cáceres",
+      paradas: ["Madrid Chamartín", "Madrid Atocha Cercanías", "Leganés", "Illescas", "Torrijos", "Talavera de la Reina", "Oropesa de Toledo", "Navalmoral de la Mata", "Casatejada", "La Bazagona", "Monfragüe", "Mirabel", "Cañaveral", "Cáceres"]
+    },
+    "17018": {
+      ruta: "Madrid Atocha Cercanías ➔ Cáceres",
+      paradas: ["Madrid Atocha Cercanías", "Leganés", "Illescas", "Torrijos", "Montearagón", "Talavera de la Reina", "Calera y Chozas", "Oropesa de Toledo", "Navalmoral de la Mata", "Casatejada", "Monfragüe", "Mirabel", "Cañaveral", "Cáceres"]
+    },
+    "17021": {
+      ruta: "Cáceres ➔ Madrid Chamartín",
+      paradas: ["Cáceres", "Cañaveral", "Mirabel", "Monfragüe", "La Bazagona", "Casatejada", "Navalmoral de la Mata", "Oropesa de Toledo", "Talavera de la Reina", "Torrijos", "Illescas", "Leganés", "Madrid Atocha Cercanías", "Madrid Chamartín"]
+    },
+    "17028": {
+      ruta: "Madrid Chamartín ➔ Cáceres",
+      paradas: ["Madrid Chamartín", "Madrid Atocha Cercanías", "Leganés", "Torrijos", "Talavera de la Reina", "Oropesa de Toledo", "Navalmoral de la Mata", "Monfragüe", "Cáceres"]
+    },
+    "17029": {
+      ruta: "Cáceres / Valencia de Alcántara ➔ Madrid",
+      paradas: ["Valencia de Alcántara", "San Vicente de Alcántara", "Cáceres", "Monfragüe", "Navalmoral de la Mata", "Talavera de la Reina", "Torrijos", "Leganés", "Madrid Atocha Cercanías"]
+    },
+    "17801": {
+      ruta: "Badajoz ➔ Puertollano",
+      paradas: ["Badajoz", "Guadiana", "Montijo", "Montijo-El Molino", "Garrovilla-Las Vegas", "Mérida", "Don Álvaro", "San Pedro de Mérida", "Guareña", "Valdetorres", "Villagonzalo", "Don Benito", "Villanueva de la Serena", "Campanario", "Castuera", "Almorchón", "Cabeza del Buey", "Peñarroya-Pueblonuevo", "Puertollano"]
+    },
+    "17806": {
+      ruta: "Cabeza del Buey ➔ Badajoz",
+      paradas: ["Cabeza del Buey", "Almorchón", "Castuera", "Campanario", "Villanueva de la Serena", "Don Benito", "Valdetorres", "Guareña", "Mérida", "Garrovilla-Las Vegas", "Montijo", "Badajoz"]
+    },
+    "18330": {
+      ruta: "Alcázar de San Juan ➔ Badajoz",
+      paradas: ["Alcázar de San Juan", "Manzanares", "Daimiel", "Almagro", "Ciudad Real", "Puertollano", "Brazatortas", "Almadenejos", "Guadalmez", "Cabeza del Buey", "Almorchón", "Castuera", "Campanario", "Villanueva de la Serena", "Don Benito", "Guareña", "Mérida", "Montijo", "Badajoz"]
+    },
+    "18331": {
+      ruta: "Badajoz ➔ Alcázar de San Juan",
+      paradas: ["Badajoz", "Montijo", "Mérida", "Don Benito", "Villanueva de la Serena", "Campanario", "Castuera", "Cabeza del Buey", "Puertollano", "Ciudad Real", "Almagro", "Manzanares", "Alcázar de San Juan"]
+    },
+    "18770": {
+      ruta: "Puertollano ➔ Badajoz",
+      paradas: ["Puertollano", "Brazatortas", "Cabeza del Buey", "Almorchón", "Castuera", "Campanario", "Villanueva de la Serena", "Don Benito", "Guareña", "Mérida", "Montijo", "Badajoz"]
+    },
+    "18773": {
+      ruta: "Plasencia ➔ Sevilla Santa Justa",
+      paradas: ["Plasencia", "Monfragüe", "Mirabel", "Cañaveral", "Cáceres", "Mérida", "Almendralejo", "Villafranca de los Barros", "Los Santos de Maimona", "Zafra", "Llerena", "Cazalla-Constantina", "Sevilla Santa Justa"]
+    },
+    "18779": {
+      ruta: "Sevilla Santa Justa ➔ Plasencia",
+      paradas: ["Sevilla Santa Justa", "Cazalla-Constantina", "Llerena", "Zafra", "Los Santos de Maimona", "Villafranca de los Barros", "Almendralejo", "Mérida", "Cáceres", "Cañaveral", "Mirabel", "Monfragüe", "Plasencia"]
+    }
   };
 
   let registrosGlobales = [];
   let graficoPuntualidad = null;
 
-  function obtenerRuta(trenId) {
+  function obtenerInfoRuta(trenId) {
     const digitos = trenId.replace(/\D/g, "");
-    for (const [clave, trayecto] of Object.entries(RUTAS_OFICIALES)) {
-      if (digitos.endsWith(clave) || digitos.includes(clave)) return trayecto;
+    for (const [clave, datos] of Object.entries(ITINERARIOS)) {
+      if (digitos.endsWith(clave) || digitos.includes(clave)) {
+        return { clave, ...datos };
+      }
     }
-    return "Corredor de Extremadura";
+    return {
+      clave: "EXT",
+      ruta: "Corredor Ferroviario de Extremadura",
+      paradas: ["Estaciones del trayecto según circulación diaria"]
+    };
   }
 
   async function cargarDatos() {
@@ -320,7 +480,7 @@
 
     if (!data || data.length === 0) {
       document.getElementById('tabla-registros').innerHTML = `
-        <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
+        <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
           Sin circulaciones registradas en este instante. La tabla se actualizará automáticamente conforme los trenes salgan a vía.
         </td></tr>`;
       return;
@@ -334,7 +494,7 @@
 
   function actualizarKPIs(datos) {
     const total = datos.length;
-    // Criterio acordado: En hora <= 15 min
+    // Umbral acordado: En hora <= 15 min
     const aTiempo = datos.filter(d => (d.retraso_minutos || 0) <= 15).length;
     const porcentaje = Math.round((aTiempo / total) * 100);
 
@@ -347,7 +507,6 @@
   }
 
   function dibujarGrafico(datos) {
-    // Umbrales: <=15 min, 16-30 min, >30 min
     const enHora = datos.filter(d => (d.retraso_minutos || 0) <= 15).length;
     const demoraLeve = datos.filter(d => d.retraso_minutos > 15 && d.retraso_minutos <= 30).length;
     const retrasoSignificativo = datos.filter(d => d.retraso_minutos > 30).length;
@@ -379,7 +538,7 @@
   function renderizarTabla(datos) {
     const tbody = document.getElementById('tabla-registros');
     if (datos.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">No hay registros bajo este filtro.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">No hay registros bajo este filtro.</td></tr>`;
       return;
     }
 
@@ -387,6 +546,7 @@
       const fecha = new Date(r.fecha_captura);
       const hora = fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       const delay = r.retraso_minutos || 0;
+      const info = obtenerInfoRuta(r.tren_id);
 
       let badgeClass = 'badge-ontime';
       let delayText = 'En hora';
@@ -400,17 +560,59 @@
         delayText = `+${delay} min`;
       }
 
+      const escapedId = r.tren_id.replace(/'/g, "\\'");
+
       return `
-        <tr>
+        <tr class="clickable-row" onclick="mostrarModal('${escapedId}', '${r.estacion_actual || ''}')">
           <td>${hora}</td>
           <td><strong>${r.tren_id}</strong></td>
-          <td>${obtenerRuta(r.tren_id)}</td>
+          <td>${info.ruta}</td>
           <td>${r.estacion_actual || 'Tramo en vía'}</td>
           <td><span class="badge ${badgeClass}">${delayText}</span></td>
           <td style="color: var(--text-muted);">${r.estado || 'CIRCULANDO'}</td>
+          <td>
+            <button class="btn-detail" onclick="event.stopPropagation(); mostrarModal('${escapedId}', '${r.estacion_actual || ''}')">
+              Ver paradas
+            </button>
+          </td>
         </tr>
       `;
     }).join('');
+  }
+
+  function mostrarModal(trenId, estacionActual) {
+    const info = obtenerInfoRuta(trenId);
+    document.getElementById('modal-titulo').innerText = `${trenId}`;
+    document.getElementById('modal-subtitulo').innerText = `${info.ruta}`;
+
+    const paradasHtml = info.paradas.map((parada, index) => {
+      const isTerminal = (index === 0 || index === info.paradas.length - 1);
+      const esActual = estacionActual && parada.toLowerCase().includes(estacionActual.toLowerCase());
+      const styleActual = esActual ? "font-weight: 700; color: var(--primary);" : "";
+
+      return `
+        <div class="stop-point ${isTerminal ? 'terminal' : ''}" style="${styleActual}">
+          ${parada} ${esActual ? ' 📍 (Punto de detección)' : ''}
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('modal-contenido').innerHTML = `
+      <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">
+        Secuencia de estaciones oficial del servicio:
+      </div>
+      <div class="route-timeline">
+        ${paradasHtml}
+      </div>
+    `;
+
+    document.getElementById('modal-itinerario').classList.add('active');
+  }
+
+  function cerrarModal(event) {
+    if (!event || event.target.id === 'modal-itinerario' || event.target.className === 'close-modal-btn') {
+      document.getElementById('modal-itinerario').classList.remove('active');
+    }
   }
 
   function filtrarTabla(tipo, btn) {
@@ -427,7 +629,6 @@
   }
 
   cargarDatos();
-  // Auto-refresco de la interfaz cada 3 minutos
   setInterval(cargarDatos, 180000);
 </script>
 
