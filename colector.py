@@ -1,152 +1,97 @@
-import json
 import os
-import urllib.request
-from supabase import create_client
+import requests
+from supabase import create_client, Client
 
-# Credenciales de Supabase desde Secrets de GitHub
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Endpoints oficiales GTFS-RT de Renfe
-URL_POSICIONES = "https://gtfsrt.renfe.com/vehicle_positions_LD.json"
-URL_RETRASOS = "https://gtfsrt.renfe.com/trip_updates_LD.json"
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Faltan las variables de entorno SUPABASE_URL o SUPABASE_KEY.")
 
-# Catálogo completo oficial de trenes que dan servicio en Extremadura
-# Los Alvia (19x/29x) se mapean con prefijo 04 (04190...) y los regionales con sus 5 dígitos
-TRENES_EXTREMADURA = {
-    # Alvia (Chamartín - Cáceres - Mérida - Badajoz)
-    "04190",
-    "04192",
-    "04194",
-    "04291",
-    "04293",
-    "04295",
-    "04297",
-    "04299",
-    "00190",
-    "00192",
-    "00194",
-    "00291",
-    "00293",
-    "00295",
-    "00297",
-    "00299",
-    # Regionales Exprés y Media Distancia Madrid - Extremadura - Sevilla
-    "17012",
-    "17014",
-    "17018",
-    "17021",
-    "17026",
-    "17028",
-    "17029",
-    "17030",
-    "17031",
-    "17032",
-    "17033",
-    "17190",
-    "17191",
-    "17192",
-    "17193",
-    "17702",
-    "17705",
-    "17706",
-    "17707",
-    "17815",
-    "17817",
-    "17823",
-    "17902",
-    "17967",
-    "18773",
-    "18775",
-    "18779",
-    # Zafra - Huelva
-    "13086",
-    "13087",
-    "13088",
-    "13089",
-    # Corredor Badajoz - Puertollano - Alcázar de San Juan
-    "17801",
-    "17803",
-    "17806",
-    "17810",
-    "17812",
-    "18330",
-    "18331",
-    "18770",
-    "18777",
-}
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Códigos clave del corredor de Extremadura
+TRENES_EXTREMADURA = [
+    "190", "192", "194", "291", "293", "295", "297", "299",
+    "17012", "17018", "17021", "17028", "17029", "17801",
+    "17806", "18330", "18331", "18770", "18773", "18775", "18779"
+]
 
-def descargar_json(url):
-  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-  with urllib.request.urlopen(req) as resp:
-    return json.loads(resp.read().decode())
+URL_TRIP_UPDATES = "https://gtfsrt.renfe.com/trip_updates_LD.json"
+URL_VEHICLE_POSITIONS = "https://gtfsrt.renfe.com/vehicle_positions_LD.json"
 
+def es_tren_extremadura(trip_id: str) -> bool:
+    trip_str = str(trip_id)
+    return any(codigo in trip_str for codigo in TRENES_EXTREMADURA)
 
-def extraer_id_tren(vehiculo_data):
-  """Extrae el identificador de 5 dígitos del tren."""
-  vid = str(vehiculo_data.get("vehicle", {}).get("id", ""))
-  trip = str(vehiculo_data.get("trip", {}).get("tripId", ""))
+def obtener_posiciones_gps():
+    posiciones = {}
+    try:
+        resp = requests.get(URL_VEHICLE_POSITIONS, timeout=10)
+        if resp.status_code == 200:
+            datos = resp.json()
+            for item in datos.get("entity", []):
+                vehicle = item.get("vehicle", {})
+                trip = vehicle.get("trip", {})
+                trip_id = trip.get("trip_id", "")
+                pos = vehicle.get("position", {})
+                if trip_id and pos:
+                    lat = pos.get("latitude")
+                    lon = pos.get("longitude")
+                    if lat and lon:
+                        posiciones[trip_id] = {"lat": float(lat), "lon": float(lon)}
+    except Exception as e:
+        print(f"Aviso al descargar vehicle_positions: {e}")
+    return posiciones
 
-  for candidato in [vid, trip[:5]]:
-    if candidato in TRENES_EXTREMADURA:
-      return candidato
-  return None
+def main():
+    print("Descargando telemetría oficial de Renfe...")
+    posiciones_gps = obtener_posiciones_gps()
 
+    try:
+        resp = requests.get(URL_TRIP_UPDATES, timeout=10)
+        resp.raise_for_status()
+        datos = resp.json()
+    except Exception as e:
+        print(f"Error al descargar trip_updates: {e}")
+        return
 
-def ejecutar_captura():
-  print("Descargando telemetría oficial de Renfe...")
-  try:
-    posiciones = descargar_json(URL_POSICIONES)
-    retrasos = descargar_json(URL_RETRASOS)
-  except Exception as e:
-    print(f"Error en descarga: {e}")
-    return
+    registros = []
+    for item in datos.get("entity", []):
+        trip_update = item.get("trip_update", {})
+        trip = trip_update.get("trip", {})
+        trip_id = trip.get("trip_id", "")
 
-  # 1. Mapear retrasos detectados
-  mapa_retrasos = {}
-  for entidad in retrasos.get("entity", []):
-    trip_update = entidad.get("trip_update", {})
-    tren_id = extraer_id_tren(trip_update)
-    if tren_id:
-      retraso_seg = trip_update.get("delay")
-      if retraso_seg is None and "stop_time_update" in trip_update:
-        paradas = trip_update["stop_time_update"]
-        if paradas:
-          retraso_seg = paradas[-1].get("arrival", {}).get("delay", 0)
+        if es_tren_extremadura(trip_id):
+            delay_segundos = trip_update.get("delay", 0)
+            retraso_minutos = round(delay_segundos / 60) if delay_segundos else 0
 
-      if retraso_seg is not None:
-        mapa_retrasos[tren_id] = round(retraso_seg / 60)
+            # Última parada reportada
+            stop_updates = trip_update.get("stop_time_update", [])
+            estacion = "En trayecto"
+            if stop_updates:
+                primera = stop_updates[0]
+                estacion = primera.get("stop_id", "En trayecto")
 
-  # 2. Mapear posiciones en vía
-  registros = []
-  for entidad in posiciones.get("entity", []):
-    vehiculo = entidad.get("vehicle", {})
-    tren_id = extraer_id_tren(vehiculo)
+            # Coordenadas GPS si están disponibles en vehicle_positions
+            gps = posiciones_gps.get(trip_id, {})
+            lat = gps.get("lat")
+            lon = gps.get("lon")
 
-    if tren_id:
-      # Limpiamos el nombre comercial para la web (ej: '04194' -> 'Alvia 194')
-      nombre_comercial = (
-          f"Alvia {tren_id[-3:]}"
-          if tren_id.startswith(("0419", "0429", "0019", "0029"))
-          else f"Tren {tren_id}"
-      )
+            registros.append({
+                "tren_id": str(trip_id),
+                "estacion_actual": str(estacion),
+                "retraso_minutos": retraso_minutos,
+                "estado": "CIRCULANDO",
+                "latitud": lat,
+                "longitud": lon
+            })
 
-      registros.append({
-          "tren_id": nombre_comercial,
-          "estacion_actual": vehiculo.get("stopId", "En trayecto"),
-          "retraso_minutos": mapa_retrasos.get(tren_id, 0),
-          "estado": vehiculo.get("currentStatus", "CIRCULANDO"),
-      })
-
-  # 3. Guardar en Supabase
-  if registros:
-    supabase.table("registros_trenes").insert(registros).execute()
-    print(f"Éxito: {len(registros)} trenes extremeños guardados.")
-  else:
-    print("Sin trenes extremeños circulando en este minuto.")
-
+    if registros:
+        res = supabase.table("registros_trenes").insert(registros).execute()
+        print(f"Éxito: {len(registros)} trenes extremeños guardados.")
+    else:
+        print("Sin trenes extremeños circulando en este minuto.")
 
 if __name__ == "__main__":
-  ejecutar_captura()
+    main()
