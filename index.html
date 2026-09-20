@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -188,7 +188,7 @@
     <div class="kpi-card">
       <div class="kpi-title">Puntualidad Global</div>
       <div class="kpi-value" id="kpi-puntualidad">-%</div>
-      <div class="kpi-sub">Estándar internacional (&lt; 5 min)</div>
+      <div class="kpi-sub">Estándar servicio (&le; 15 min)</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-title">Retraso Medio Ponderado</div>
@@ -213,9 +213,9 @@
     <div class="panel">
       <h3 class="panel-title">Criterios de Puntualidad</h3>
       <ul style="font-size: 13px; color: var(--text-muted); padding-left: 18px; margin: 0;">
-        <li style="margin-bottom: 8px;"><strong style="color: var(--success)">En hora:</strong> Desviación igual o inferior a 5 min.</li>
-        <li style="margin-bottom: 8px;"><strong style="color: var(--warning)">Demora leve:</strong> Retraso entre 6 y 15 min.</li>
-        <li style="margin-bottom: 8px;"><strong style="color: var(--danger)">Retraso significativo:</strong> Superior a 15 min.</li>
+        <li style="margin-bottom: 8px;"><strong style="color: var(--success)">En hora:</strong> Desviación igual o inferior a 15 min.</li>
+        <li style="margin-bottom: 8px;"><strong style="color: var(--warning)">Demora leve:</strong> Retraso entre 16 y 30 min.</li>
+        <li style="margin-bottom: 8px;"><strong style="color: var(--danger)">Retraso significativo:</strong> Superior a 30 min.</li>
       </ul>
       <div style="margin-top: 18px; font-size: 11px; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 12px;">
         Los retrasos corresponden a la telemetría enviada por el transpondedor del tren al sistema central en tiempo real.
@@ -258,14 +258,14 @@
   <!-- Nota Metodológica -->
   <div class="methodology-box">
     <h4>Transparencia y Metodología</h4>
-    Esta plataforma no elabora estimaciones teóricas ni recopila quejas subjetivas. Los datos mostrados provienen directamente de los feeds públicos oficiales de telemetría ferroviaria en formato estándar internacional <strong>GTFS-RT (General Transit Feed Specification Real-Time)</strong> gestionados por Renfe y Adif. Cada registro refleja la última posición satelital y cálculo de desviación horario reportado de forma automatizada por las balizas y transpondedores del material rodante.
+    Esta plataforma no elabora estimaciones teóricas ni recopila valoraciones subjetivas. Los datos mostrados provienen directamente de los feeds públicos oficiales de telemetría ferroviaria en formato estándar internacional <strong>GTFS-RT (General Transit Feed Specification Real-Time)</strong> gestionados por Renfe y Adif. Cada registro refleja la última posición satelital y el cálculo de desviación horario reportado de forma automatizada por los transpondedores del material rodante.
   </div>
 </div>
 
 <script>
-  // Credenciales de lectura pública de Supabase
-  const SUPABASE_URL = "https://mubylikdejwkfjjymmzq.supabase.co";
-  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11YnlsaWtkZWp3a2ZqanltbXpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3NTk3NDUsImV4cCI6MjEwNTMzNTc0NX0.nGoIlItx-dzGRiwoRNd8PEC3X6q5eNP3p_k219QnmZk";
+  // Credenciales activas del proyecto Supabase
+  const SUPABASE_URL = "https://pjyndxkdajvxeyzsgdgm.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeW5keGtkYWp2eGV5enNnZGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NzQ0NTgsImV4cCI6MjEwMzM1MDQ1OH0.Smj2hvmuw6iPpUx-bi2I3hHW6wUWKG7yCzEhWRvlQxs";
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   // Mapeo oficial de trayectos de las tablas horarias
@@ -327,7 +327,8 @@
 
   function actualizarKPIs(datos) {
     const total = datos.length;
-    const aTiempo = datos.filter(d => (d.retraso_minutos || 0) <= 5).length;
+    // Criterio: En hora <= 15 minutos
+    const aTiempo = datos.filter(d => (d.retraso_minutos || 0) <= 15).length;
     const porcentaje = Math.round((aTiempo / total) * 100);
 
     const sumaRetrasos = datos.reduce((acc, curr) => acc + (curr.retraso_minutos || 0), 0);
@@ -339,9 +340,10 @@
   }
 
   function dibujarGrafico(datos) {
-    const enHora = datos.filter(d => (d.retraso_minutos || 0) <= 5).length;
-    const retrasoLeve = datos.filter(d => d.retraso_minutos > 5 && d.retraso_minutos <= 15).length;
-    const retrasoGrave = datos.filter(d => d.retraso_minutos > 15).length;
+    // Umbrales acordados: <=15 min, 16-30 min, >30 min
+    const enHora = datos.filter(d => (d.retraso_minutos || 0) <= 15).length;
+    const demoraLeve = datos.filter(d => d.retraso_minutos > 15 && d.retraso_minutos <= 30).length;
+    const retrasoSignificativo = datos.filter(d => d.retraso_minutos > 30).length;
 
     const ctx = document.getElementById('puntualidadChart').getContext('2d');
     if (graficoPuntualidad) graficoPuntualidad.destroy();
@@ -349,9 +351,9 @@
     graficoPuntualidad = new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: ['En hora (<= 5 min)', 'Retraso 6-15 min', 'Retraso > 15 min'],
+        labels: ['En hora (<= 15 min)', 'Demora leve (16-30 min)', 'Retraso sign. (> 30 min)'],
         datasets: [{
-          data: [enHora, retrasoLeve, retrasoGrave],
+          data: [enHora, demoraLeve, retrasoSignificativo],
           backgroundColor: ['#16a34a', '#d97706', '#dc2626'],
           borderWidth: 2,
           borderColor: '#ffffff'
@@ -381,10 +383,10 @@
 
       let badgeClass = 'badge-ontime';
       let delayText = 'En hora';
-      if (delay > 15) {
+      if (delay > 30) {
         badgeClass = 'badge-delayed';
         delayText = `+${delay} min`;
-      } else if (delay > 5) {
+      } else if (delay > 15) {
         badgeClass = 'badge-minor';
         delayText = `+${delay} min`;
       } else if (delay > 0) {
@@ -418,7 +420,7 @@
   }
 
   cargarDatos();
-  // Auto-refresco de la web cada 3 minutos
+  // Consulta automática cada 3 minutos
   setInterval(cargarDatos, 180000);
 </script>
 
