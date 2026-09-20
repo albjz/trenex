@@ -90,7 +90,7 @@
       margin-bottom: 24px;
     }
     #map {
-      height: 380px;
+      height: 440px;
       width: 100%;
       border-radius: 6px;
       z-index: 10;
@@ -298,11 +298,14 @@
     </div>
   </div>
 
-  <!-- Mapa en Vivo -->
+  <!-- Mapa Ferroviario en Vivo -->
   <div class="map-container-card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-      <h3 style="margin: 0; font-size: 16px;">Mapa de Circulaciones en Tiempo Real (GPS Renfe)</h3>
-      <span style="font-size: 12px; color: var(--text-muted);" id="map-status">Localizando convoyes...</span>
+      <div>
+        <h3 style="margin: 0; font-size: 16px;">Mapa de Infraestructura y Circulaciones en Vivo</h3>
+        <span style="font-size: 12px; color: var(--text-muted);">Red ferroviaria de Extremadura y seguimiento por transpondedor</span>
+      </div>
+      <span style="font-size: 12px; color: var(--primary); font-weight: 600;" id="map-status">Cargando mapa...</span>
     </div>
     <div id="map"></div>
   </div>
@@ -323,7 +326,7 @@
         <li style="margin-bottom: 8px;"><strong style="color: var(--danger)">Retraso significativo:</strong> Superior a 30 min.</li>
       </ul>
       <div style="margin-top: 18px; font-size: 11px; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 12px;">
-        Puntos verdes: &le;15 min | Ámbar: 16-30 min | Rojos: &gt;30 min.
+        Vías en color rojo/negro (OpenRailwayMap). Estaciones clave señalizadas con nodos grises.
       </div>
     </div>
   </div>
@@ -389,11 +392,56 @@
 
   // Inicializar Leaflet centrado en Extremadura
   const map = L.map('map').setView([39.2, -6.1], 8);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '© OpenStreetMap'
+
+  // Capa base limpia (CartoDB Positron)
+  const baseCarto = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap, &copy; CartoDB',
+    maxZoom: 19
   }).addTo(map);
+
+  // Capa de Infraestructura Ferroviaria Oficial de OpenRailwayMap
+  const railwayOverlay = L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
+    attribution: 'Map style: &copy; <a href="https://www.OpenRailwayMap.org">OpenRailwayMap</a>',
+    maxZoom: 19,
+    opacity: 0.95
+  }).addTo(map);
+
+  // Red de capas: trenes activos y estaciones fijas
   const trainLayerGroup = L.layerGroup().addTo(map);
+  const stationLayerGroup = L.layerGroup().addTo(map);
+
+  // Estaciones principales de la red extremeña para referencias fijas
+  const ESTACIONES_EXTREMADURA = [
+    { nombre: "Badajoz", coords: [38.8893, -6.9852] },
+    { nombre: "Mérida", coords: [38.9221, -6.3458] },
+    { nombre: "Cáceres", coords: [39.4608, -6.3892] },
+    { nombre: "Plasencia", coords: [40.0272, -6.0967] },
+    { nombre: "Monfragüe-Plasencia", coords: [39.9317, -6.0924] },
+    { nombre: "Navalmoral de la Mata", coords: [39.8914, -5.5414] },
+    { nombre: "Zafra", coords: [38.4194, -6.4111] },
+    { nombre: "Don Benito", coords: [38.9614, -5.8617] },
+    { nombre: "Villanueva de la Serena", coords: [38.9772, -5.7997] },
+    { nombre: "Castuera", coords: [38.7231, -5.5392] },
+    { nombre: "Cabeza del Buey", coords: [38.7275, -5.2217] },
+    { nombre: "Llerena", coords: [38.2389, -6.0097] },
+    { nombre: "Almendralejo", coords: [38.6881, -6.4022] },
+    { nombre: "Montijo", coords: [38.9103, -6.6178] },
+    { nombre: "Valencia de Alcántara", coords: [39.4183, -7.2389] }
+  ];
+
+  // Dibujar estaciones en el mapa
+  ESTACIONES_EXTREMADURA.forEach(st => {
+    const stationMarker = L.circleMarker(st.coords, {
+      radius: 4,
+      fillColor: '#475569',
+      color: '#ffffff',
+      weight: 1.5,
+      opacity: 0.9,
+      fillOpacity: 0.9
+    });
+    stationMarker.bindTooltip(`<b>Estación:</b> ${st.nombre}`, { direction: 'top' });
+    stationLayerGroup.addLayer(stationMarker);
+  });
 
   const ITINERARIOS = {
     "190": {
@@ -551,12 +599,12 @@
       else if (delay > 15) markerColor = '#d97706';
 
       const circleMarker = L.circleMarker([t.latitud, t.longitud], {
-        radius: 8,
+        radius: 9,
         fillColor: markerColor,
         color: '#ffffff',
-        weight: 2,
+        weight: 2.5,
         opacity: 1,
-        fillOpacity: 0.9
+        fillOpacity: 0.95
       });
 
       const info = obtenerInfoRuta(t.tren_id);
@@ -573,7 +621,7 @@
     });
 
     document.getElementById('map-status').innerText = 
-      trenesMapeados > 0 ? `${trenesMapeados} trenes posicionados en vivo` : 'Esperando emisión de coordenadas GPS';
+      trenesMapeados > 0 ? `${trenesMapeados} trenes en vía` : 'Esperando próximas circulaciones';
   }
 
   function dibujarGrafico(datos) {
