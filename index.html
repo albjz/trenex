@@ -41,6 +41,11 @@
       margin-bottom: 24px;
       border-bottom: 1px solid var(--border);
       padding-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
     }
     h1 { font-size: 26px; font-weight: 700; margin: 0 0 6px 0; color: var(--text); }
     .subtitle { color: var(--text-muted); font-size: 14px; margin: 0; }
@@ -62,6 +67,31 @@
       height: 8px;
       border-radius: 50%;
       background: #0284c7;
+    }
+
+    /* Exportador de Datos */
+    .export-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn-export {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .btn-export:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
     }
 
     /* KPIs */
@@ -97,24 +127,6 @@
       z-index: 10;
     }
 
-    /* Analítica Visual */
-    .analytics-section {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 16px;
-      margin-bottom: 28px;
-    }
-    @media (max-width: 768px) {
-      .analytics-section { grid-template-columns: 1fr; }
-    }
-    .panel {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
-    }
-    .panel-title { font-size: 16px; font-weight: 600; margin-top: 0; margin-bottom: 16px; }
-
     /* Rankings y Comparativas */
     .rankings-grid {
       display: grid;
@@ -125,6 +137,14 @@
     @media (max-width: 768px) {
       .rankings-grid { grid-template-columns: 1fr; }
     }
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .panel-title { font-size: 16px; font-weight: 600; margin-top: 0; margin-bottom: 16px; }
+
     .rank-list {
       list-style: none;
       padding: 0;
@@ -143,19 +163,22 @@
     .rank-route { font-size: 11px; color: var(--text-muted); display: block; }
     .rank-val { font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
 
-    /* Ficha Individual */
-    .search-panel {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
+    /* Ficha Individual y Tramos */
+    .dual-module-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
       margin-bottom: 28px;
     }
+    @media (max-width: 768px) {
+      .dual-module-grid { grid-template-columns: 1fr; }
+    }
+
     .search-controls {
       display: flex;
       gap: 12px;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       flex-wrap: wrap;
     }
     .select-input {
@@ -163,18 +186,29 @@
       border-radius: 6px;
       border: 1px solid var(--border);
       background: #fff;
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text);
-      min-width: 260px;
+      width: 100%;
     }
     .audit-stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
       background: #f8fafc;
-      padding: 14px;
+      padding: 12px;
       border-radius: 6px;
       border: 1px solid var(--border);
+    }
+
+    /* Analítica Visual */
+    .analytics-section {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 768px) {
+      .analytics-section { grid-template-columns: 1fr; }
     }
 
     /* Filtros y Tabla */
@@ -335,10 +369,16 @@
 
 <div class="container">
   <header>
-    <h1>Observatorio de Puntualidad Ferroviaria de Extremadura</h1>
-    <p class="subtitle">Monitor público, neutral e independiente de las circulaciones de viajeros en Extremadura.</p>
-    <div class="live-indicator">
-      <span class="pulse-dot"></span> Telemetría Oficial Renfe GTFS-RT
+    <div>
+      <h1>Observatorio de Puntualidad Ferroviaria de Extremadura</h1>
+      <p class="subtitle">Monitor público, neutral e independiente de las circulaciones de viajeros en Extremadura.</p>
+      <div class="live-indicator">
+        <span class="pulse-dot"></span> Telemetría Oficial Renfe GTFS-RT
+      </div>
+    </div>
+    <div class="export-group">
+      <button class="btn-export" onclick="exportarCSV()">⬇ Descargar CSV</button>
+      <button class="btn-export" onclick="exportarJSON()">⬇ Descargar JSON</button>
     </div>
   </header>
 
@@ -361,19 +401,19 @@
     </div>
   </div>
 
-  <!-- Mapa Ferroviario en Vivo -->
+  <!-- Mapa Ferroviario en Vivo (100% Libre y Sin API Keys) -->
   <div class="map-container-card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
       <div>
         <h3 style="margin: 0; font-size: 16px;">Mapa de Infraestructura y Circulaciones en Vivo</h3>
-        <span style="font-size: 12px; color: var(--text-muted);">Red ferroviaria de Extremadura y seguimiento por transpondedor</span>
+        <span style="font-size: 12px; color: var(--text-muted);">Red ferroviaria de Extremadura con transpondedor GPS y trazado de vías</span>
       </div>
-      <span style="font-size: 12px; color: var(--primary); font-weight: 600;" id="map-status">Cargando mapa...</span>
+      <span style="font-size: 12px; color: var(--primary); font-weight: 600;" id="map-status">Cargando vías...</span>
     </div>
     <div id="map"></div>
   </div>
 
-  <!-- Rankings de Puntualidad y Demoras -->
+  <!-- Rankings de Fiabilidad y Demoras -->
   <div class="rankings-grid">
     <div class="panel">
       <h3 class="panel-title" style="color: var(--success);">Top Servicios Más Fiables</h3>
@@ -389,32 +429,45 @@
     </div>
   </div>
 
-  <!-- Ficha de Auditoría Individual -->
-  <div class="search-panel">
-    <h3 class="panel-title">Auditoría Individual por Tren</h3>
-    <div class="search-controls">
-      <label for="select-tren" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Selecciona un servicio:</label>
-      <select id="select-tren" class="select-input" onchange="actualizarFichaIndividual(this.value)">
-        <option value="">-- Elige un tren del histórico --</option>
-      </select>
+  <!-- Auditoría Individual y Tramos Negros -->
+  <div class="dual-module-grid">
+    <!-- Auditoría Individual -->
+    <div class="panel">
+      <h3 class="panel-title">Auditoría Individual por Tren</h3>
+      <div class="search-controls">
+        <select id="select-tren" class="select-input" onchange="actualizarFichaIndividual(this.value)">
+          <option value="">-- Elige un tren del histórico --</option>
+        </select>
+      </div>
+      <div class="audit-stats" id="audit-stats-box" style="display: none;">
+        <div>
+          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Puntualidad</span>
+          <div style="font-size: 20px; font-weight: 700; color: var(--text);" id="audit-puntualidad">-%</div>
+        </div>
+        <div>
+          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Demora Media</span>
+          <div style="font-size: 20px; font-weight: 700; color: var(--text);" id="audit-demora">- min</div>
+        </div>
+        <div>
+          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Muestras</span>
+          <div style="font-size: 18px; font-weight: 700; color: var(--text);" id="audit-total">-</div>
+        </div>
+        <div>
+          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Trayecto</span>
+          <div style="font-size: 12px; font-weight: 600; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="audit-ruta">-</div>
+        </div>
+      </div>
     </div>
-    <div class="audit-stats" id="audit-stats-box" style="display: none;">
-      <div>
-        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Puntualidad del Tren</span>
-        <div style="font-size: 20px; font-weight: 700; color: var(--text);" id="audit-puntualidad">-%</div>
+
+    <!-- Detector de Tramos Negros / Puntos Críticos -->
+    <div class="panel">
+      <h3 class="panel-title" style="color: #475569;">Puntos Críticos de Demora (Tramos Negros)</h3>
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+        Puntos de control donde los convoyes acumulan mayor desviación:
       </div>
-      <div>
-        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Demora Media</span>
-        <div style="font-size: 20px; font-weight: 700; color: var(--text);" id="audit-demora">- min</div>
-      </div>
-      <div>
-        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Capturas Analizadas</span>
-        <div style="font-size: 20px; font-weight: 700; color: var(--text);" id="audit-total">-</div>
-      </div>
-      <div>
-        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Ruta Oficial</span>
-        <div style="font-size: 12px; font-weight: 600; color: var(--primary);" id="audit-ruta">-</div>
-      </div>
+      <ul class="rank-list" id="ranking-tramos">
+        <li style="color: var(--text-muted); padding: 8px 0;">Analizando puntos de detección...</li>
+      </ul>
     </div>
   </div>
 
@@ -434,7 +487,7 @@
         <li style="margin-bottom: 8px;"><strong style="color: var(--danger)">Retraso significativo:</strong> Superior a 30 min.</li>
       </ul>
       <div style="margin-top: 18px; font-size: 11px; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 12px;">
-        Vías representadas con OpenRailwayMap. Balizas y estaciones con puntos grises.
+        Vías y trazados representados con OpenRailwayMap. Balizas y estaciones con nodos grises.
       </div>
     </div>
   </div>
@@ -501,15 +554,16 @@
   // Inicializar Leaflet centrado en Extremadura
   const map = L.map('map').setView([39.2, -6.1], 8);
 
-  // CartoDB Positron + OpenRailwayMap
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap, &copy; CartoDB',
-    maxZoom: 19
+  // Capa base estándar 100% abierta (OpenStreetMap - Sin restricciones de clave)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 18
   }).addTo(map);
 
+  // Capa Oficial de Vías Ferroviarias de OpenRailwayMap
   L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.OpenRailwayMap.org">OpenRailwayMap</a>',
-    maxZoom: 19,
+    maxZoom: 18,
     opacity: 0.95
   }).addTo(map);
 
@@ -537,7 +591,7 @@
   ESTACIONES_EXTREMADURA.forEach(st => {
     const stationMarker = L.circleMarker(st.coords, {
       radius: 4,
-      fillColor: '#475569',
+      fillColor: '#334155',
       color: '#ffffff',
       weight: 1.5,
       opacity: 0.9,
@@ -667,6 +721,7 @@
     registrosGlobales = data;
     actualizarKPIs(data);
     calcularRankingsYAuditoria(data);
+    calcularTramosCriticos(data);
     dibujarGrafico(data);
     actualizarMapa(data);
     renderizarTabla(data);
@@ -709,7 +764,7 @@
       listaAnalizada.push(metricasPorTren[id]);
     }
 
-    // Top Fiabilidad (Mayor % puntualidad)
+    // Top Fiabilidad
     const topFiables = [...listaAnalizada].sort((a, b) => b.puntualidad - a.puntualidad || a.mediaRetraso - b.mediaRetraso).slice(0, 3);
     const fiabHtml = topFiables.map((t, idx) => `
       <li class="rank-item">
@@ -722,7 +777,7 @@
     `).join('');
     document.getElementById('ranking-fiabilidad').innerHTML = fiabHtml || '<li style="padding: 8px 0;">Datos insuficientes</li>';
 
-    // Top Mayor Demora (Mayor retraso medio)
+    // Top Mayor Demora
     const topDemoras = [...listaAnalizada].sort((a, b) => b.mediaRetraso - a.mediaRetraso).slice(0, 3);
     const demHtml = topDemoras.map((t, idx) => `
       <li class="rank-item">
@@ -735,7 +790,7 @@
     `).join('');
     document.getElementById('ranking-demoras').innerHTML = demHtml || '<li style="padding: 8px 0;">Datos insuficientes</li>';
 
-    // Poblar Selector de Tren para Auditoría Individual
+    // Poblar Selector
     const select = document.getElementById('select-tren');
     const valorSeleccionado = select.value;
     select.innerHTML = '<option value="">-- Elige un tren del histórico --</option>';
@@ -751,6 +806,41 @@
       select.value = valorSeleccionado;
       actualizarFichaIndividual(valorSeleccionado);
     }
+  }
+
+  function calcularTramosCriticos(datos) {
+    const demorasPorPunto = {};
+    datos.forEach(d => {
+      const p = d.estacion_actual;
+      if (p && p !== 'En trayecto' && p !== 'Vía general') {
+        if (!demorasPorPunto[p]) demorasPorPunto[p] = { totalDemora: 0, muestras: 0 };
+        demorasPorPunto[p].totalDemora += (d.retraso_minutos || 0);
+        demorasPorPunto[p].muestras += 1;
+      }
+    });
+
+    const ranking = [];
+    for (const [punto, val] of Object.entries(demorasPorPunto)) {
+      if (val.muestras >= 2) {
+        const media = Number((val.totalDemora / val.muestras).toFixed(1));
+        ranking.push({ punto, media, muestras: val.muestras });
+      }
+    }
+
+    ranking.sort((a, b) => b.media - a.media);
+    const topTramos = ranking.slice(0, 4);
+
+    const html = topTramos.map((t, idx) => `
+      <li class="rank-item">
+        <div>
+          <span class="rank-name">Punto / Estación ${t.punto}</span>
+          <span class="rank-route">${t.muestras} circulaciones registradas</span>
+        </div>
+        <span class="rank-val" style="background: #fef3c7; color: #92400e;">+${t.media} min promedio</span>
+      </li>
+    `).join('');
+
+    document.getElementById('ranking-tramos').innerHTML = html || '<li style="color: var(--text-muted); padding: 8px 0;">Sin patrones de demora acumulados aún.</li>';
   }
 
   function actualizarFichaIndividual(trenId) {
@@ -932,6 +1022,41 @@
     } else if (tipo === 'REGIONAL') {
       renderizarTabla(registrosGlobales.filter(r => !r.tren_id.toUpperCase().includes('ALVIA')));
     }
+  }
+
+  // Exportadores de Datos Abiertos
+  function exportarCSV() {
+    if (!registrosGlobales || registrosGlobales.length === 0) return alert('Sin datos que exportar');
+    const headers = ['id', 'tren_id', 'estacion_actual', 'retraso_minutos', 'estado', 'latitud', 'longitud', 'fecha_captura'];
+    const rows = registrosGlobales.map(r => [
+      r.id,
+      `"${r.tren_id}"`,
+      `"${r.estacion_actual || ''}"`,
+      r.retraso_minutos,
+      `"${r.estado || ''}"`,
+      r.latitud || '',
+      r.longitud || '',
+      `"${r.fecha_captura}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `observatorio_extremadura_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function exportarJSON() {
+    if (!registrosGlobales || registrosGlobales.length === 0) return alert('Sin datos que exportar');
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(registrosGlobales, null, 2));
+    const link = document.createElement('a');
+    link.setAttribute('href', dataStr);
+    link.setAttribute('download', `observatorio_extremadura_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   cargarDatos();
