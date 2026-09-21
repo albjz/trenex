@@ -2,10 +2,9 @@ name: Colector Trenes Extremadura
 
 on:
   schedule:
-    # Se ejecuta cada 15 minutos de forma automática
+    # Se ejecuta cada 15 minutos
     - cron: '*/15 * * * *'
-  # Permite pulsar un botón para probarlo manualmente cuando quieras
-  workflow_dispatch:
+  workflow_dispatch: # Permite ejecutarlo manualmente con un botón
 
 jobs:
   capturar:
@@ -19,13 +18,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Instalar librerías
+      - name: Instalar dependencias necesarias
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install requests supabase
 
-      - name: Ejecutar colector
+      - name: Ejecutar colector de Renfe
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
